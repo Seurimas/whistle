@@ -61,7 +61,7 @@ update msg model =
             case model.audioNode of
                 Just audioNode ->
                     { model | volume = newVolume }
-                        ! [ attempt justReportError (Whistle.changeVolume ((toFloat newVolume) / 100) (Task.succeed audioNode)) ]
+                        ! [ attempt justReportError (Whistle.changeVolume ((toFloat newVolume) / 100) audioNode) ]
 
                 Nothing ->
                     model ! []
@@ -90,8 +90,8 @@ main =
             }
                 ! [ attempt (doButReport Init)
                         (Whistle.Native.createOscillator "sine" 440
-                            |> Whistle.audioNode
-                            |> Whistle.defaultOutput
+                            |> Task.andThen Whistle.makeAudioNode
+                            |> Task.andThen Whistle.pipeToDefaultOutput
                         )
                   ]
         , subscriptions = subs

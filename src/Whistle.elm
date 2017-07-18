@@ -6,43 +6,29 @@ import Platform exposing (Task)
 import Task
 
 
-changeVolume : Float -> Task Error AudioNode -> Task Error AudioNode
-changeVolume newVolume init =
-    let
-        cv ({ volume } as audioNode) =
-            changeGain volume newVolume
-                |> Task.map (\_ -> audioNode)
-    in
-        init
-            |> Task.andThen cv
+changeVolume : Float -> AudioNode -> Task Error AudioNode
+changeVolume newVolume ({ volume } as audioNode) =
+    changeGain newVolume volume
+        |> Task.map (\_ -> audioNode)
 
 
-defaultOutput : Task Error AudioNode -> Task Error AudioNode
-defaultOutput init =
-    let
-        do ({ volume } as audioNode) =
-            connect volume audioContextDestination
-                |> Task.map (\_ -> Debug.log "Output" audioNode)
-    in
-        init
-            |> Task.andThen do
+pipeToDefaultOutput : AudioNode -> Task Error AudioNode
+pipeToDefaultOutput ({ volume } as audioNode) =
+    connect volume audioContextDestination
+        |> Task.map (\_ -> audioNode)
 
 
-audioNode : Task Error RawNode -> Task Error AudioNode
-audioNode source =
-    source
+makeAudioNode : RawNode -> Task Error AudioNode
+makeAudioNode sourceNode =
+    createGainNode 1
         |> Task.andThen
-            (\sourceNode ->
-                createGainNode 1
-                    |> Task.andThen
-                        (\gainNode ->
-                            connect sourceNode gainNode
-                                |> Task.map
-                                    (\_ ->
-                                        { source = sourceNode
-                                        , volume = gainNode
-                                        }
-                                    )
+            (\gainNode ->
+                connect sourceNode gainNode
+                    |> Task.map
+                        (\_ ->
+                            { source = sourceNode
+                            , volume = gainNode
+                            }
                         )
             )
 

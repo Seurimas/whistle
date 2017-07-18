@@ -4,141 +4,132 @@ var _seurimas$whistle$Native_Impl = function () {
   var receive = _elm_lang$core$Native_Scheduler.receive;
   var fail = _elm_lang$core$Native_Scheduler.fail;
   var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  /** Rather than try to get JS WebAudio objects through Elm "customs",
+  store a reference to those objects and retrieve them as needed. **/
+  var audioNodes = {};
+  var apiObjs = {};
+  var nodeCount = 0;
+  function getNewNode(node, config) {
+    var nodeRef = nodeCount++;
+    audioNodes[nodeRef] = {
+      nodeRef: nodeRef,
+      nodeType: config.nodeType,
+      destination: config.destination,
+      source: config.source,
+    };
+    apiObjs[nodeRef] = node;
+    return audioNodes[nodeRef];
+  }
+  function nodeError(nodeObj, callback, errorString) {
+    callback(fail(errorString + ": " + JSON.stringify(nodeObj)));
+  }
   /** Helpers */
-  function getDestination(destinationId) {
-    if (destinationId[0] == 'context') {
-      return audioCtx.destination;
-    } else if (destinationId[0] == 'stream') {
-      return streams[destinationId[1]];
-    } else if (destinationId[0] == 'node') {
-      return audioNodes[destinationId[1]];
-    }
-  }
-  function getSource(sourceId) {
-    if (sourceId[0] == 'stream') {
-      return streams[sourceId[1]];
-    } else if (sourceId[0] == 'node') {
-      return audioNodes[sourceId[1]];
-    } else {
-      return null;
-    }
-  }
-  function getNode(nodeId) {
-    if (nodeId[0] == 'node') {
-      return audioNodes[nodeId[1]];
-    } else {
-      return null;
-    }
-  }
-  function missingDestination(destinationId, callback) {
-    if (!getDestination(destinationId)) {
-      callback(fail('Missing destination ' + destinationId));
-      return true;
-    } else {
-      return false;
-    }
-  }
-  function missingSource(sourceId, callback) {
-    if (!getSource(sourceId)) {
-      callback(fail('Missing source node ' + sourceId));
-      return true;
-    } else {
-      return false;
-    }
-  }
-  function missingNode(audioNodeId, callback) {
-    if (!getNode(audioNodeId)) {
-      callback(fail('Missing audio node ' + audioNodeId));
-      return true;
-    } else {
-      return false;
-    }
+  function getApiNode(nodeObj) {
+    return apiObjs[nodeObj.nodeRef];
   }
   /** Constructors */
-  var analyzers = {};
-  var analyzerCount = 0;
-  function createAnalyzer() {
-    return nativeBinding(function(callback) {
-      var analyzerId = analyzerCount++;
-      analyzers[analyzerId] = audioCtx.createAnalyzer();
-      callback(succeed(analyzerId));
-    });
-  }
-  function destroyAnalyzer(analyzerId) {
-    return nativeBinding(function(callback) {
-      analyzers[analyzerId].close();
-      delete analyzers[analyzerId];
-      callback(succeed(analyzerId));
-    });
-  }
-  var streams = {};
   var microphoneStreamId = null;
-  var streamCount = 0;
   function getMicrophoneStream() {
     return nativeBinding(function(callback) {
       if (microphoneStreamId !== null) {
-        callback(succeed(['stream', microphoneStreamId]));
+        callback(succeed(audioNodes[microphoneStreamId]));
         return;
       }
       navigator.mediaDevices.getUserMedia({ audio: true}).then(
       function(stream) {
-        microphoneStreamId = streamCount++;
-        streams[microphoneStreamId] = audioCtx.createMediaStreamSource(stream);
-        callback(succeed(['stream', microphoneStreamId]));
+        var microphone = audioCtx.createMediaStreamSource(stream);
+        var microphoneNode = getNewNode(microphone, {
+          nodeType: 'microphone',
+          destination: false,
+          source: true,
+        })
+        microphoneStreamId = microphone.nodeRef;
+        callback(succeed(microphoneNode));
       }, function(err) {
         callback(fail('getUserMedia failed: ' + err));
       });
     });
   }
   /** Audio nodes */
-  var audioNodes = {};
-  var audioNodeCount = 0;
   function createOscillator(type, frequency) {
     return nativeBinding(function(callback) {
-      var audioNodeId = audioNodeCount++;
-      audioNodes[audioNodeId] = audioCtx.createOscillator();
-      audioNodes[audioNodeId].type = type;
-      audioNodes[audioNodeId].frequency.value = frequency;
-      audioNodes[audioNodeId].start();
-      callback(succeed(['node', audioNodeId]));
+      var oscillator = audioCtx.createOscillator();
+      oscillator.frequency.value = frequency;
+      oscillator.start();
+      callback(succeed(getNewNode(oscillator, {
+        nodeType: 'oscillator',
+        destination: false,
+        source: true,
+      })));
     });
   }
   function createGainNode(initialValue) {
     return nativeBinding(function(callback) {
-      var audioNodeId = audioNodeCount++;
-      audioNodes[audioNodeId] = audioCtx.createGain();
-      audioNodes[audioNodeId].gain.value = initialValue;
-      callback(succeed(['node', audioNodeId]));
+      var gain = audioCtx.createGain();
+      gain.gain.value = initialValue;
+      callback(succeed(getNewNode(gain, {
+        nodeType: 'gain',
+        destination: true,
+        source: true,
+      })));
     });
   }
-  function changeGain(audioNodeId, newValue) {
+  function changeGain(newValue, nodeObj) {
     return nativeBinding(function(callback) {
-      var audioNode = getNode(audioNodeId);
-      if (!missingNode(audioNodeId, callback) && audioNode.gain) {
-        audioNode.gain.value = newValue;
-        callback(succeed(['node', audioNodeId]));
+      var apiNode = getApiNode(nodeObj);
+      if (nodeObj.nodeType !== 'gain') {
+        nodeError(nodeObj, callback, 'Not a gain node');
+      }
+      else if (apiNode) {
+        apiNode.gain.value = newValue;
+        callback(succeed(nodeObj));
       } else {
-        callback(fail('Node ' + audioNodeId + ' is not a gain node.'));
+        nodeError(nodeObj, callback, 'Gain node forgotten');
       }
     });
   }
-  function connect(sourceId, destinationId) {
+  function connect(source, destination) {
+    function missingDestination(nodeObj, callback) {
+      if (!nodeObj.destination) {
+        nodeError(nodeObj, callback, 'Not a destination');
+        return true;
+      } else if (!getApiNode(nodeObj)) {
+        nodeError(nodeObj, callback, 'Destination node forgotten');
+        return true;
+      } else {
+        return false;
+      }
+    }
+    function missingSource(nodeObj, callback) {
+      if (!nodeObj.source) {
+        nodeError(nodeObj, callback, 'Not a source');
+        return true;
+      } else if (!getApiNode(nodeObj)) {
+        nodeError(nodeObj, callback, 'Source node forgotten');
+        return true;
+      } else {
+        return false;
+      }
+    }
     return nativeBinding(function(callback) {
-      if (!missingSource(sourceId, callback)) {
-        if (!missingDestination(destinationId, callback)) {
-          getSource(sourceId).connect(getDestination(destinationId));
-          callback(succeed(destinationId));
+      if (!missingSource(source, callback)) {
+        if (!missingDestination(destination, callback)) {
+          getApiNode(source).connect(getApiNode(destination));
+          callback(succeed(destination));
         }
       }
     });
   }
+  var audioContextDestination = getNewNode(audioCtx.destination, {
+    destination: true,
+    source: false,
+    type: 'context',
+  });
   return {
-    audioContextDestination: ['context', -1],
-    createAnalyzer: createAnalyzer,
-    destroyAnalyzer: destroyAnalyzer,
-    getMicrophoneStream: getMicrophoneStream(),
+    audioContextDestination: audioContextDestination,
+    getMicrophoneStream: getMicrophoneStream(), // F0
     createOscillator: F2(createOscillator),
-    createGainNode: createGainNode,
+    createGainNode: createGainNode, // F1
     changeGain: F2(changeGain),
     connect: F2(connect),
   }

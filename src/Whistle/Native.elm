@@ -10,16 +10,6 @@ audioContextDestination =
     Native.Impl.audioContextDestination
 
 
-createAnalyzer : Task x Analyzer
-createAnalyzer =
-    Native.Impl.createAnalyzer
-
-
-destroyAnalyzer : Analyzer -> Task Error Analyzer
-destroyAnalyzer =
-    Native.Impl.destroyAnalyzer
-
-
 createOscillator : String -> Float -> Task x RawNode
 createOscillator =
     Native.Impl.createOscillator
@@ -30,7 +20,7 @@ createGainNode =
     Native.Impl.createGainNode
 
 
-changeGain : RawNode -> Float -> Task Error RawNode
+changeGain : Float -> RawNode -> Task Error RawNode
 changeGain =
     Native.Impl.changeGain
 

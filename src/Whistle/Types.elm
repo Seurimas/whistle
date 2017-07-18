@@ -5,12 +5,20 @@ type alias Error =
     String
 
 
-type alias RawNode =
-    ( String, Int )
+type alias NodeType =
+    String
 
 
-type alias Analyzer =
+type alias NodeRef =
     Int
+
+
+type alias RawNode =
+    { nodeType : NodeType
+    , nodeRef : NodeRef
+    , destination : Bool
+    , source : Bool
+    }
 
 
 type alias AudioNode =

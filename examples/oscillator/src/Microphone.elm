@@ -1,6 +1,7 @@
 module Main exposing (..)
 
 import Whistle
+import Whistle.Native
 import Html
 import Platform.Sub
 import Task exposing (perform, attempt)
@@ -36,8 +37,8 @@ main =
             0
                 ! [ attempt reportError
                         (Task.sequence
-                            [ Whistle.getMicrophoneStream
-                            , Task.succeed Whistle.audioContextDestination
+                            [ Whistle.Native.getMicrophoneStream
+                            , Task.succeed Whistle.Native.audioContextDestination
                             ]
                             |> Task.andThen Whistle.linkNodes
                         )
