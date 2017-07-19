@@ -4,46 +4,38 @@ var _seurimas$whistle$Native_Impl = function () {
   var receive = _elm_lang$core$Native_Scheduler.receive;
   var fail = _elm_lang$core$Native_Scheduler.fail;
   var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  /** Rather than try to get JS WebAudio objects through Elm "customs",
-  store a reference to those objects and retrieve them as needed. **/
-  var audioNodes = {};
-  var apiObjs = {};
-  var nodeCount = 0;
   function getNewNode(node, config) {
-    var nodeRef = nodeCount++;
-    audioNodes[nodeRef] = {
-      nodeRef: nodeRef,
+    var audioNode = {
+      realNode: node,
       nodeType: config.nodeType,
       destination: config.destination,
       source: config.source,
     };
-    apiObjs[nodeRef] = node;
-    return audioNodes[nodeRef];
+    return audioNode;
   }
   function nodeError(nodeObj, callback, errorString) {
     callback(fail(errorString + ": " + JSON.stringify(nodeObj)));
   }
   /** Helpers */
   function getApiNode(nodeObj) {
-    return apiObjs[nodeObj.nodeRef];
+    return nodeObj.realNode
   }
   /** Constructors */
-  var microphoneStreamId = null;
+  var microphoneNode = null;
   function getMicrophoneStream() {
     return nativeBinding(function(callback) {
-      if (microphoneStreamId !== null) {
+      if (microphoneNode !== null) {
         callback(succeed(audioNodes[microphoneStreamId]));
         return;
       }
       navigator.mediaDevices.getUserMedia({ audio: true}).then(
       function(stream) {
         var microphone = audioCtx.createMediaStreamSource(stream);
-        var microphoneNode = getNewNode(microphone, {
+        microphoneNode = getNewNode(microphone, {
           nodeType: 'microphone',
           destination: false,
           source: true,
         })
-        microphoneStreamId = microphone.nodeRef;
         callback(succeed(microphoneNode));
       }, function(err) {
         callback(fail('getUserMedia failed: ' + err));

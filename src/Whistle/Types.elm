@@ -9,8 +9,10 @@ type alias NodeType =
     String
 
 
+{-| Truly native value.
+-}
 type alias NodeRef =
-    Int
+    () -> ()
 
 
 type alias RawNode =
