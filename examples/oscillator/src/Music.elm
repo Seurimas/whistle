@@ -3,6 +3,7 @@ module Main exposing (..)
 import Whistle
 import Whistle.Types
 import Whistle.Native
+import Http
 import Html exposing (Html, input)
 import Html.Attributes exposing (type_, value, min, max)
 import Html.Events exposing (onInput)
@@ -17,9 +18,20 @@ type alias Model =
 
 
 type Msg
-    = Init Whistle.Types.RawNode
+    = Buffer String
+    | Init Whistle.Types.RawNode
     | VolumeChange Int
     | Noop
+
+
+receiveBuffer : Result Http.Error String -> Msg
+receiveBuffer result =
+    case result of
+        Ok buffer ->
+            Buffer buffer
+
+        _ ->
+            Noop
 
 
 volumeChange input =
@@ -90,7 +102,9 @@ main =
             }
                 ! [ attempt (doButReport Init)
                         (Task.sequence
-                            [ Whistle.Native.createOscillator "sine" 440
+                            [ Whistle.Native.getAudioData "main_theme.mp3"
+                                |> Task.andThen (Whistle.Native.createBufferSource True)
+                                |> Task.andThen (Whistle.Native.startBufferSource 0)
                             , Whistle.Native.createGainNode 0
                             ]
                             |> Task.andThen Whistle.linkNodes

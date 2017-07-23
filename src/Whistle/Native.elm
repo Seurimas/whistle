@@ -10,6 +10,31 @@ audioContextDestination =
     Native.Impl.audioContextDestination
 
 
+getAudioData : String -> Task x Buffer
+getAudioData =
+    Native.Impl.getAudioData
+
+
+createBufferSource : Bool -> Buffer -> Task x RawNode
+createBufferSource =
+    Native.Impl.createBufferSource
+
+
+startSource : Float -> RawNode -> Task x RawNode
+startSource =
+    Native.Impl.startSource
+
+
+startSourceNow : RawNode -> Task x RawNode
+startSourceNow =
+    startSource 0
+
+
+stopSource : RawNode -> Task x RawNode
+stopSource =
+    Native.Impl.stopSource
+
+
 createOscillator : String -> Float -> Task x RawNode
 createOscillator =
     Native.Impl.createOscillator

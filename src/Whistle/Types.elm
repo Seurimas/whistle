@@ -9,21 +9,23 @@ type alias NodeType =
     String
 
 
-{-| Truly native value.
+{-| Native buffer value (e.g. sound files).
+Different types to help the type system.
+-}
+type alias Buffer =
+    () -> Int
+
+
+{-| Native audio node value (e.g. sound node, volume node, etc.).
+Different types to help the type system.
 -}
 type alias NodeRef =
-    () -> ()
+    () -> String
 
 
 type alias RawNode =
     { nodeType : NodeType
-    , nodeRef : NodeRef
+    , realNode : NodeRef
     , destination : Bool
     , source : Bool
-    }
-
-
-type alias AudioNode =
-    { source : RawNode
-    , volume : RawNode
     }

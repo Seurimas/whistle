@@ -6,34 +6,13 @@ import Platform exposing (Task)
 import Task
 
 
-changeVolume : Float -> AudioNode -> Task Error AudioNode
-changeVolume newVolume ({ volume } as audioNode) =
-    changeGain newVolume volume
+linkToOutput : RawNode -> Task Error RawNode
+linkToOutput audioNode =
+    Whistle.Native.connect audioNode Whistle.Native.audioContextDestination
         |> Task.map (\_ -> audioNode)
 
 
-pipeToDefaultOutput : AudioNode -> Task Error AudioNode
-pipeToDefaultOutput ({ volume } as audioNode) =
-    connect volume audioContextDestination
-        |> Task.map (\_ -> audioNode)
-
-
-makeAudioNode : RawNode -> Task Error AudioNode
-makeAudioNode sourceNode =
-    createGainNode 1
-        |> Task.andThen
-            (\gainNode ->
-                connect sourceNode gainNode
-                    |> Task.map
-                        (\_ ->
-                            { source = sourceNode
-                            , volume = gainNode
-                            }
-                        )
-            )
-
-
-linkNodes : List RawNode -> Task Error (Maybe RawNode)
+linkNodes : List RawNode -> Task Error RawNode
 linkNodes audioNodes =
     let
         nodePairs xs ys =
@@ -59,13 +38,13 @@ linkNodes audioNodes =
         ultimateNode nodes =
             case nodes of
                 final :: [] ->
-                    Just final
+                    Task.succeed final
 
                 _ :: rest ->
                     ultimateNode rest
 
                 [] ->
-                    Nothing
+                    Task.fail "Empty list given to linkNodes"
     in
         Task.sequence connectTasks
-            |> Task.map ultimateNode
+            |> Task.andThen ultimateNode
