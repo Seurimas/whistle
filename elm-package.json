@@ -9,7 +9,7 @@
     "exposed-modules": [
         "Whistle",
         "Whistle.Native",
-        "Whistle.Type"
+        "Whistle.Types"
     ],
     "native-modules": true,
     "dependencies": {
